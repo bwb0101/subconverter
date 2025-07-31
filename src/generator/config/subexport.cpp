@@ -2362,9 +2362,11 @@ void dnsProxyToSingBox(const std::vector<DnsProxyConfig> &proxys, rapidjson::Doc
         rapidjson::Value s1(rule_set_array, allocator);
         dns_rule_sets.AddMember("rule_set", s1, allocator);
         dns_rule_sets.AddMember("query_type", rapidjson::Value(rapidjson::kArrayType).PushBack("A", allocator).PushBack("AAAA", allocator), allocator);
+        dns_rule_sets.AddMember("action", "route", allocator);
         dns_rule_sets.AddMember("server", rapidjson::Value("dns_fakeip", allocator), allocator);
         rapidjson::Value dns_rule_sets2(rapidjson::kObjectType);
         dns_rule_sets2.AddMember("rule_set", rule_set_array, allocator);
+        dns_rule_sets2.AddMember("action", "route", allocator);
         dns_rule_sets2.AddMember("server", rapidjson::Value("dns_proxy", allocator), allocator);
         json["dns"] | rapidjson_ext::AppendToArray("rules", dns_rule_sets, allocator) | rapidjson_ext::AppendToArray("rules", dns_rule_sets2, allocator);
     }

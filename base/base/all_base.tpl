@@ -278,20 +278,32 @@ enhanced-mode-by-rule = true
     "dns": {
         "servers": [
 			{
-                "tag": "default_dns",
+				"type": "udp",
+                "tag": "dns_default",
                 "address": "119.29.29.29",
                 "detour": "DIRECT"
             },
+			{
+				"type": "local",
+				"tag": "dns_system",
+				"detour": "DIRECT"
+			},
+			{
+                "tag": "dns_block",
+                "address": "rcode://refused"
+            },
             {
+                "type":"h3",
                 "tag": "dns_direct",
-                "address": "h3://dns.alidns.com/dns-query",
-                "address_resolver": "default-dns",
+                "address": "dns.alidns.com/dns-query",
+                "address_resolver": "dns_default",
                 "detour": "DIRECT"
             },
             {
+                "type": "tls",
                 "tag": "dns_proxy",
-                "address": "tls://1.1.1.1",
-                "address_resolver": "default-dns",
+                "address": "1.1.1.1",
+                "address_resolver": "dns_default",
                 "client_subnet": "1.0.1.0",
                 "detour": "♻️ 自动选择"
             },
@@ -300,19 +312,9 @@ enhanced-mode-by-rule = true
                 "tag": "dns_fakeip",
                 "inet4_range": "198.18.0.0\/15",
                 "inet6_range": "fc00::\/18"
-            },
-            {
-                "tag": "dns_block",
-                "address": "rcode://refused"
             }
         ],
-        "rules": [
-            {
-                "outbound": "any",
-                "action": "route",
-                "server": "default_dns"
-            }
-        ]
+        "rules": []
     },
     "outbounds": [],
     "route": {
