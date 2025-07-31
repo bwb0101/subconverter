@@ -517,22 +517,22 @@ static void appendSingBoxRule(std::vector<std::string_view> &args, rapidjson::Va
     rules | AppendToArray(realType.c_str(), rapidjson::Value(value.c_str(), value.size(), allocator), allocator);
 }
 
-void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules)
-{
+void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent> &ruleset_content_array, bool overwrite_original_rules) {
     using namespace rapidjson_ext;
     std::string rule_group, retrieved_rules, strLine, final;
-    std::stringstream strStrm;
-    size_t total_rules = 0;
+    // std::stringstream strStrm;
+    // size_t total_rules = 0;
     auto &allocator = base_rule.GetAllocator();
 
     rapidjson::Value rules(rapidjson::kArrayType);
+    rapidjson::Value rulesets(rapidjson::kArrayType);
     if (!overwrite_original_rules)
     {
         if (base_rule.HasMember("route") && base_rule["route"].HasMember("rules") && base_rule["route"]["rules"].IsArray())
             rules.Swap(base_rule["route"]["rules"]);
     }
 
-    auto dns_object = buildObject(allocator, "protocol", "dns", "outbound", "dns-out");
+    auto dns_object = buildObject(allocator, "protocol", "dns", "outbound", "hijack-dns");
     rules.PushBack(dns_object, allocator);
 
     if (global.singBoxAddClashModes)
@@ -546,52 +546,62 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
     std::vector<std::string_view> temp(4);
     for(RulesetContent &x : ruleset_content_array)
     {
-        if(global.maxAllowedRules && total_rules > global.maxAllowedRules)
-            break;
+        // if(global.maxAllowedRules && total_rules > global.maxAllowedRules)
+        // break;
         rule_group = x.rule_group;
-        retrieved_rules = x.rule_content.get();
-        if(retrieved_rules.empty())
-        {
-            writeLog(0, "Failed to fetch ruleset or ruleset is empty: '" + x.rule_path + "'!", LOG_LEVEL_WARNING);
-            continue;
-        }
-        if(startsWith(retrieved_rules, "[]"))
-        {
-            strLine = retrieved_rules.substr(2);
-            if(startsWith(strLine, "FINAL") || startsWith(strLine, "MATCH"))
+        if (x.ruleset_singbox.size() == 1) {
+            retrieved_rules = x.ruleset_singbox.begin()->second;
+            if(retrieved_rules.empty())
             {
-                final = rule_group;
+                writeLog(0, "Failed to fetch ruleset or ruleset is empty: '" + x.rule_path + "'!", LOG_LEVEL_WARNING);
                 continue;
             }
-            rules.PushBack(transformRuleToSingBox(temp, strLine, rule_group, allocator), allocator);
-            total_rules++;
-            continue;
+            if(startsWith(retrieved_rules, "[]"))
+            {
+                strLine = retrieved_rules.substr(2);
+                if(startsWith(strLine, "FINAL") || startsWith(strLine, "MATCH"))
+                {
+                    final = rule_group;
+                    continue;
+                }
+                // rules.PushBack(transformRuleToSingBox(temp, strLine, rule_group, allocator), allocator);
+                // total_rules++;
+                // continue;
+            }
         }
-        retrieved_rules = convertRuleset(retrieved_rules, x.rule_type);
-        char delimiter = getLineBreak(retrieved_rules);
+        // retrieved_rules = convertRuleset(retrieved_rules, x.rule_type);
+        // char delimiter = getLineBreak(retrieved_rules);
+        //
+        // strStrm.clear();
+        // strStrm<<retrieved_rules;
 
-        strStrm.clear();
-        strStrm<<retrieved_rules;
-
-        std::string::size_type lineSize;
+        // std::string::size_type lineSize;
         rapidjson::Value rule(rapidjson::kObjectType);
-
-        while(getline(strStrm, strLine, delimiter))
-        {
-            if(global.maxAllowedRules && total_rules > global.maxAllowedRules)
-                break;
-            strLine = trimWhitespace(strLine, true, true); //remove whitespaces
-            lineSize = strLine.size();
-            if(!lineSize || strLine[0] == ';' || strLine[0] == '#' || (lineSize >= 2 && strLine[0] == '/' && strLine[1] == '/')) //empty lines and comments are ignored
-                continue;
-            if(strFind(strLine, "//"))
-            {
-                strLine.erase(strLine.find("//"));
-                strLine = trimWhitespace(strLine);
-            }
-            appendSingBoxRule(temp, rule, strLine, allocator);
+        // while(getline(strStrm, strLine, delimiter))
+        // {
+        //     if(global.maxAllowedRules && total_rules > global.maxAllowedRules)
+        //         break;
+        //     strLine = trimWhitespace(strLine, true, true); //remove whitespaces
+        //     lineSize = strLine.size();
+        //     if(!lineSize || strLine[0] == ';' || strLine[0] == '#' || (lineSize >= 2 && strLine[0] == '/' && strLine[1] == '/')) //empty lines and comments are ignored
+        //         continue;
+        //     if(strFind(strLine, "//"))
+        //     {
+        //         strLine.erase(strLine.find("//"));
+        //         strLine = trimWhitespace(strLine);
+        //     }
+        //     appendSingBoxRule(temp, rule, strLine, allocator);
+        // }
+        for (auto [fst, snd] : x.ruleset_singbox) {
+            rule | AppendToArray("rule_set", rapidjson::Value(fst.c_str(), fst.size(), allocator), allocator);
+            auto rs = buildObject(allocator, "type", "remote", "format", "binary", "update_interval", "3d");
+            // rapidjson::Value ruleset(rapidjson::kObjectType);
+            rs.AddMember("tag", rapidjson::Value(fst.c_str(), allocator), allocator);
+            rs.AddMember("url", rapidjson::Value(snd.c_str(), allocator), allocator);
+            rulesets.PushBack(rs, allocator);
         }
         if (rule.ObjectEmpty()) continue;
+        rule.AddMember("action", "route", allocator);
         rule.AddMember("outbound", rapidjson::Value(rule_group.c_str(), allocator), allocator);
         rules.PushBack(rule, allocator);
     }
@@ -602,5 +612,6 @@ void rulesetToSingBox(rapidjson::Document &base_rule, std::vector<RulesetContent
     auto finalValue = rapidjson::Value(final.c_str(), allocator);
     base_rule["route"]
     | AddMemberOrReplace("rules", rules, allocator)
+    | AddMemberOrReplace("rule_set", rulesets, allocator)
     | AddMemberOrReplace("final", finalValue, allocator);
 }

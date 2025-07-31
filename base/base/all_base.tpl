@@ -272,120 +272,64 @@ enhanced-mode-by-rule = true
     "log": {
         "disabled": false,
         "level": "info",
-        "timestamp": true
+        "timestamp": true,
+        "output": "./singbox.log"
     },
     "dns": {
         "servers": [
-            {
-                "tag": "dns_proxy",
-                "address": "tls://1.1.1.1",
-                "address_resolver": "dns_resolver"
+			{
+                "tag": "default_dns",
+                "address": "119.29.29.29",
+                "detour": "DIRECT"
             },
             {
                 "tag": "dns_direct",
                 "address": "h3://dns.alidns.com/dns-query",
-                "address_resolver": "dns_resolver",
+                "address_resolver": "default-dns",
                 "detour": "DIRECT"
             },
             {
+                "tag": "dns_proxy",
+                "address": "tls://1.1.1.1",
+                "address_resolver": "default-dns",
+                "client_subnet": "1.0.1.0",
+                "detour": "♻️ 自动选择"
+            },
+            {
+                "type": "fakeip",
                 "tag": "dns_fakeip",
-                "address": "fakeip"
+                "inet4_range": "198.18.0.0\/15",
+                "inet6_range": "fc00::\/18"
             },
             {
-                "tag": "dns_resolver",
-                "address": "223.5.5.5",
-                "detour": "DIRECT"
-            },
-            {
-                "tag": "block",
-                "address": "rcode://success"
+                "tag": "dns_block",
+                "address": "rcode://refused"
             }
         ],
         "rules": [
             {
-                "outbound": [
-                    "any"
-                ],
-                "server": "dns_resolver"
-            },
-            {
-                "geosite": [
-                    "category-ads-all"
-                ],
-                "server": "dns_block",
-                "disable_cache": true
-            },
-            {
-                "geosite": [
-                    "geolocation-!cn"
-                ],
-                "query_type": [
-                    "A",
-                    "AAAA"
-                ],
-                "server": "dns_fakeip"
-            },
-            {
-                "geosite": [
-                    "geolocation-!cn"
-                ],
-                "server": "dns_proxy"
+                "outbound": "any",
+                "action": "route",
+                "server": "default_dns"
             }
-        ],
-        "final": "dns_direct",
-        "independent_cache": true,
-        "fakeip": {
-            "enabled": true,
-            {% if default(request.singbox.ipv6, "") == "1" %}
-            "inet6_range": "fc00::\/18",
-            {% endif %}
-            "inet4_range": "198.18.0.0\/15"
-        }
+        ]
     },
-    "ntp": {
-        "enabled": true,
-        "server": "time.apple.com",
-        "server_port": 123,
-        "interval": "30m",
-        "detour": "DIRECT"
-    },
-    "inbounds": [
-        {
-            "type": "mixed",
-            "tag": "mixed-in",
-            {% if bool(default(global.singbox.allow_lan, "")) %}
-            "listen": "0.0.0.0",
-            {% else %}
-            "listen": "127.0.0.1",
-            {% endif %}
-            "listen_port": {{ default(global.singbox.mixed_port, "2080") }}
-        },
-        {
-            "type": "tun",
-            "tag": "tun-in",
-            "inet4_address": "172.19.0.1/30",
-            {% if default(request.singbox.ipv6, "") == "1" %}
-            "inet6_address": "fdfe:dcba:9876::1/126",
-            {% endif %}
-            "auto_route": true,
-            "strict_route": true,
-            "stack": "mixed",
-            "sniff": true
-        }
-    ],
     "outbounds": [],
     "route": {
         "rules": [],
+        "rule_set":[],
         "auto_detect_interface": true
     },
     "experimental": {
         "cache_file": {
             "enabled": true,
-            "store_fakeip": true
+            "store_fakeip": true,
+        	"path": "./cache.db"
         },
         "clash_api": {
             "external_controller": "{{ default(global.clash.external_controller, "127.0.0.1:9090") }}",
-            "external_ui": "dashboard"
+            "external_ui": "dashboard",
+            "external_ui_download_url": "https://github.3x25.com/https://github.com/Zephyruso/zashboard/archive/refs/heads/gh-pages.zip"
         }
     }
 }

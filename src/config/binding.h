@@ -307,6 +307,38 @@ namespace INIBinding
     };
 
     template<>
+    struct from<DnsProxyConfig>
+    {
+        static DnsProxyConfigs from_ini(const StrArray &arr)
+        {
+            /*
+            static const std::map<std::string, RulesetType> RulesetTypes = {
+                {"clash-domain:", RulesetType::ClashDomain},
+                {"clash-ipcidr:", RulesetType::ClashIpCidr},
+                {"clash-classic:", RulesetType::ClashClassic},
+                {"quanx:", RulesetType::QuantumultX},
+                {"surge:", RulesetType::SurgeRuleset}
+            };
+            */
+            DnsProxyConfigs confs;
+            for(const String &x_ref : arr)
+            {
+                DnsProxyConfig conf;
+                String x = x_ref;
+                auto iter = std::ranges::find_if(DnsProxyTypes, [x](auto y){ return startsWith(x, y.first); });
+                if(iter != DnsProxyTypes.end())
+                {
+                    x.erase(0, iter->first.size());
+                    conf.proxy_type = iter->second;
+                }
+                conf.dns_proxy = split(x, ",");
+                confs.emplace_back(std::move(conf));
+            }
+            return confs;
+        }
+    };
+
+    template<>
     struct from<CronTaskConfig>
     {
         static CronTaskConfigs from_ini(const StrArray &arr)

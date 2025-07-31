@@ -6,6 +6,9 @@
 
 #include "config/regmatch.h"
 #include "generator/config/subexport.h"
+
+#include <ranges>
+
 #include "generator/template/templates.h"
 #include "handler/settings.h"
 #include "parser/config/proxy.h"
@@ -2334,6 +2337,39 @@ static rapidjson::Value stringArrayToJsonArray(const std::string &array, const s
     return result;
 }
 
+void dnsProxyToSingBox(const std::vector<DnsProxyConfig> &proxys, rapidjson::Document &json, const std::vector<RulesetContent> &ruleset_content_array) {
+    auto &allocator = json.GetAllocator();
+    rapidjson::Value rule_set_array(rapidjson::kArrayType);;
+
+    std::unordered_map<std::string, const RulesetContent*> ruleset_content_index;
+    for (const auto& c : ruleset_content_array) {
+        ruleset_content_index[c.rule_group] = &c;
+    }
+    for (const auto&[proxy_type, dns_proxy] : proxys) {
+        for (auto dp : dns_proxy) {
+            if (auto it = ruleset_content_index.find(dp); it != ruleset_content_index.end()) {
+                if (proxy_type == DnsProxyType::SingBox) {
+                    for (const auto &key: it->second->ruleset_singbox | std::views::keys) {
+                        // dns_rule_sets | rapidjson_ext::AppendToArray("rule_set", rapidjson::Value(key.c_str(), key.size(), allocator), allocator);
+                        rule_set_array.PushBack(rapidjson::Value(key.c_str(), key.size(), allocator), allocator);
+                    }
+                }
+            }
+        }
+    }
+    if (!rule_set_array.Empty()) {
+        rapidjson::Value dns_rule_sets(rapidjson::kObjectType);
+        rapidjson::Value s1(rule_set_array, allocator);
+        dns_rule_sets.AddMember("rule_set", s1, allocator);
+        dns_rule_sets.AddMember("query_type", rapidjson::Value(rapidjson::kArrayType).PushBack("A", allocator).PushBack("AAAA", allocator), allocator);
+        dns_rule_sets.AddMember("server", rapidjson::Value("dns_fakeip", allocator), allocator);
+        rapidjson::Value dns_rule_sets2(rapidjson::kObjectType);
+        dns_rule_sets2.AddMember("rule_set", rule_set_array, allocator);
+        dns_rule_sets2.AddMember("server", rapidjson::Value("dns_proxy", allocator), allocator);
+        json["dns"] | rapidjson_ext::AppendToArray("rules", dns_rule_sets, allocator) | rapidjson_ext::AppendToArray("rules", dns_rule_sets2, allocator);
+    }
+}
+
 void proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json, std::vector<RulesetContent> &ruleset_content_array, const ProxyGroupConfigs &extra_proxy_group, extra_settings &ext) {
     using namespace rapidjson_ext;
     rapidjson::Document::AllocatorType &allocator = json.GetAllocator();
@@ -2347,8 +2383,6 @@ void proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json, std::v
         outbounds.PushBack(direct, allocator);
         auto reject = buildObject(allocator, "type", "block", "tag", "REJECT");
         outbounds.PushBack(reject, allocator);
-        auto dns = buildObject(allocator, "type", "dns", "tag", "dns-out");
-        outbounds.PushBack(dns, allocator);
     }
 
     for (Proxy &x : nodes)
@@ -2784,7 +2818,7 @@ void proxyToSingBox(std::vector<Proxy> &nodes, rapidjson::Document &json, std::v
     json | AddMemberOrReplace("outbounds", outbounds, allocator);
 }
 
-std::string proxyToSingBox(std::vector<Proxy> &nodes, const std::string &base_conf, std::vector<RulesetContent> &ruleset_content_array, const ProxyGroupConfigs &extra_proxy_group, extra_settings &ext)
+std::string proxyToSingBox(std::vector<Proxy> &nodes, const std::string &base_conf, std::vector<RulesetContent> &ruleset_content_array, const ProxyGroupConfigs &extra_proxy_group, const DnsProxyConfigs &dns_proxy, extra_settings &ext)
 {
     using namespace rapidjson_ext;
     rapidjson::Document json;
@@ -2804,6 +2838,7 @@ std::string proxyToSingBox(std::vector<Proxy> &nodes, const std::string &base_co
         json.SetObject();
     }
 
+    dnsProxyToSingBox(dns_proxy, json, ruleset_content_array);
     proxyToSingBox(nodes, json, ruleset_content_array, extra_proxy_group, ext);
 
     if(ext.nodelist || !ext.enable_rule_generator)

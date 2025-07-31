@@ -4,6 +4,7 @@
 #include <string>
 
 #include "config/crontask.h"
+#include "config/dns.h"
 #include "config/regmatch.h"
 #include "config/proxygroup.h"
 #include "config/ruleset.h"
@@ -13,6 +14,10 @@
 #include "utils/string.h"
 #include "utils/stl_extra.h"
 #include "utils/tribool.h"
+
+const std::map<std::string, ruleset_type> RulesetTypes = {{"clash-domain:", RULESET_CLASH_DOMAIN}, {"clash-ipcidr:", RULESET_CLASH_IPCIDR}, {"clash-classic:", RULESET_CLASH_CLASSICAL}, \
+            {"quanx:", RULESET_QUANX}, {"surge:", RULESET_SURGE}, {"singbox:", RULESET_SINGBOX}};   // 增加singbox
+const std::map<std::string, DnsProxyType> DnsProxyTypes = {{"singbox:", DnsProxyType::SingBox}};
 
 struct Settings
 {
@@ -76,6 +81,7 @@ struct ExternalConfig
 {
     ProxyGroupConfigs custom_proxy_group;
     RulesetConfigs surge_ruleset;
+    DnsProxyConfigs dns_proxy;
     std::string clash_rule_base;
     std::string surge_rule_base;
     std::string surfboard_rule_base;

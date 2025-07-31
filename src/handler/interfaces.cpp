@@ -347,6 +347,7 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
     std::string base_content, output_content;
     ProxyGroupConfigs lCustomProxyGroups = global.customProxyGroups;
     RulesetConfigs lCustomRulesets = global.customRulesets;
+    DnsProxyConfigs lDnsProxys;
     string_array lIncludeRemarks = global.includeRemarks, lExcludeRemarks = global.excludeRemarks;
     std::vector<RulesetContent> lRulesetContent;
     extra_settings ext;
@@ -452,6 +453,7 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
         extconf.tpl_args = &tpl_args;
         if(loadExternalConfig(argExternalConfig, extconf) == 0)
         {
+            lDnsProxys = extconf.dns_proxy;
             if(!ext.nodelist)
             {
                 checkExternalBase(extconf.sssub_rule_base, lSSSubBase);
@@ -948,7 +950,7 @@ std::string subconverter(RESPONSE_CALLBACK_ARGS)
             }
         }
 
-        output_content = proxyToSingBox(nodes, base_content, lRulesetContent, lCustomProxyGroups, ext);
+        output_content = proxyToSingBox(nodes, base_content, lRulesetContent, lCustomProxyGroups, lDnsProxys, ext);
 
         if(argUpload)
             uploadGist("singbox", argUploadPath, output_content, false);

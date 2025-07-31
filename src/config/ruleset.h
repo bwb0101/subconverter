@@ -9,13 +9,13 @@ enum class RulesetType
     QuantumultX,
     ClashDomain,
     ClashIpCidr,
-    ClashClassic
+    ClashClassic,
 };
 
 struct RulesetConfig
 {
     String Group;
-    //RulesetType Type = RulesetType::SurgeRuleset;
+    // RulesetType Type = RulesetType::SurgeRuleset;
     String Url;
     Integer Interval = 86400;
     bool operator==(const RulesetConfig &r) const

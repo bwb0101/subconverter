@@ -6,6 +6,8 @@
 #include <sstream>
 #include <vector>
 #include <map>
+#include <random>
+#include <algorithm>
 
 using string = std::string;
 using string_size = std::string::size_type;
@@ -145,6 +147,22 @@ template<typename KeyType, typename ValueType, typename... Args>
 std::multimap<std::string, ValueType> multiMapOf(KeyType&& key, ValueType&& value, Args&&... args) {
     std::multimap<std::string, ValueType> result;
     fillMap(result, std::forward<KeyType>(key), std::forward<ValueType>(value), std::forward<Args>(args)...);
+    return result;
+}
+
+inline std::string generateRandomString() {
+    static const std::string charset =
+        "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+
+    std::random_device rd;
+    std::mt19937 generator(rd());
+    std::uniform_int_distribution<> distribution(0, static_cast<int>(charset.size()) - 1);
+
+    std::string result(15, ' '); // 预分配15个字符空间
+    std::generate_n(result.begin(), 15, [&]() {
+        return charset[distribution(generator)];
+    });
+
     return result;
 }
 

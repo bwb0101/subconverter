@@ -19,9 +19,6 @@ Settings global;
 
 extern WebServer webServer;
 
-const std::map<std::string, ruleset_type> RulesetTypes = {{"clash-domain:", RULESET_CLASH_DOMAIN}, {"clash-ipcidr:", RULESET_CLASH_IPCIDR}, {"clash-classic:", RULESET_CLASH_CLASSICAL}, \
-            {"quanx:", RULESET_QUANX}, {"surge:", RULESET_SURGE}};
-
 int importItems(string_array &target, bool scope_limit)
 {
     string_array result;
@@ -250,6 +247,7 @@ void refreshRulesets(RulesetConfigs &ruleset_list, std::vector<RulesetContent> &
     eraseElements(ruleset_content_array);
     std::string rule_group, rule_url, rule_url_typed, interval;
     RulesetContent rc;
+    std::map<std::string, size_t> ruleset_map;
 
     std::string proxy = parseProxy(global.proxyRuleset);
 
@@ -257,24 +255,38 @@ void refreshRulesets(RulesetConfigs &ruleset_list, std::vector<RulesetContent> &
     {
         rule_group = x.Group;
         rule_url = x.Url;
-        std::string::size_type pos = x.Url.find("[]");
+        ruleset_type type = RULESET_SURGE;
+        auto iter = std::ranges::find_if(RulesetTypes, [rule_url](auto y){ return startsWith(rule_url, y.first); });
+        if(iter != RulesetTypes.end())
+        {
+            rule_url.erase(0, iter->first.size());
+            type = iter->second;
+        }
+        rule_url_typed = rule_url;
+        //
+        std::string::size_type pos = rule_url.find("[]");
         if(pos != std::string::npos)
         {
             writeLog(0, "Adding rule '" + rule_url.substr(pos + 2) + "," + rule_group + "'.", LOG_LEVEL_INFO);
-            rc = {rule_group, "", "", RULESET_SURGE, std::async(std::launch::async, [=](){return rule_url.substr(pos);}), 0};
+            if (type == RULESET_SINGBOX) {
+                rc = {rule_group, "", "", type, 0, {}, {{rule_url, rule_url}}};
+            } else {
+                rc = {rule_group, "", "", type, 0, std::async(std::launch::async, [=](){return rule_url.substr(pos);}), {}};
+            }
         }
         else
         {
-            ruleset_type type = RULESET_SURGE;
-            rule_url_typed = rule_url;
-            auto iter = std::find_if(RulesetTypes.begin(), RulesetTypes.end(), [rule_url](auto y){ return startsWith(rule_url, y.first); });
-            if(iter != RulesetTypes.end())
-            {
-                rule_url.erase(0, iter->first.size());
-                type = iter->second;
+            if (type == RULESET_SINGBOX) {  // 增加singbox
+                if (auto it = ruleset_map.find(rule_group); it != ruleset_map.end()) {
+                    ruleset_content_array[it->second].ruleset_singbox[generateRandomString()] = rule_url;
+                    continue;
+                }
+                rc = {rule_group, rule_url, rule_url_typed, type, x.Interval,std::shared_future<std::string>{},{{generateRandomString(), rule_url}}};
+                ruleset_map[rule_group] = ruleset_content_array.size();
+            } else {
+                writeLog(0, "Updating ruleset url '" + rule_url + "' with group '" + rule_group + "'.", LOG_LEVEL_INFO);
+                rc = {rule_group, rule_url, rule_url_typed, type, x.Interval, fetchFileAsync(rule_url, proxy, global.cacheRuleset, true, global.asyncFetchRuleset), {}};
             }
-            writeLog(0, "Updating ruleset url '" + rule_url + "' with group '" + rule_group + "'.", LOG_LEVEL_INFO);
-            rc = {rule_group, rule_url, rule_url_typed, type, fetchFileAsync(rule_url, proxy, global.cacheRuleset, true, global.asyncFetchRuleset), x.Interval};
         }
         ruleset_content_array.emplace_back(std::move(rc));
     }
@@ -1243,6 +1255,13 @@ int loadExternalConfig(std::string &path, ExternalConfig &ext)
         importItems(vArray, global.APIMode);
         ext.custom_proxy_group = INIBinding::from<ProxyGroupConfig>::from_ini(vArray);
     }
+
+    if (std::string dns_proxy = ini.item_prefix_exist("dms_proxy") ? "dms_proxy" : ""; !dns_proxy.empty()) {
+        string_array vArray;
+        ini.get_all(dns_proxy, vArray);
+        ext.dns_proxy = INIBinding::from<DnsProxyConfig>::from_ini(vArray);
+    }
+
     std::string ruleset_name = ini.item_prefix_exist("ruleset") ? "ruleset" : "surge_ruleset";
     if(ini.item_prefix_exist(ruleset_name))
     {

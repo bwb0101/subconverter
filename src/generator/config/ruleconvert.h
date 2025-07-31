@@ -16,7 +16,8 @@ enum ruleset_type
     RULESET_QUANX,
     RULESET_CLASH_DOMAIN,
     RULESET_CLASH_IPCIDR,
-    RULESET_CLASH_CLASSICAL
+    RULESET_CLASH_CLASSICAL,
+    RULESET_SINGBOX,
 };
 
 struct RulesetContent
@@ -25,8 +26,9 @@ struct RulesetContent
     std::string rule_path;
     std::string rule_path_typed;
     int rule_type = RULESET_SURGE;
-    std::shared_future<std::string> rule_content;
     int update_interval = 0;
+    std::shared_future<std::string> rule_content;
+    std::map<std::string, std::string> ruleset_singbox;    // 一个tag=一个url
 };
 
 std::string convertRuleset(const std::string &content, int type);
